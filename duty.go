@@ -1,12 +1,19 @@
 package duty
 
 import (
+	"github.com/GaruGaru/duty/storage"
 	"github.com/GaruGaru/duty/task"
 	"github.com/satori/go.uuid"
 )
 
 type Duty struct {
-	WorkPool task.Pool
+	Manager task.Manager
+}
+
+func New(store storage.Storage) Duty {
+	return Duty{
+		Manager: task.NewTaskManager(store),
+	}
 }
 
 func (d Duty) Schedule(t task.Task) (bool, error) {
@@ -14,14 +21,14 @@ func (d Duty) Schedule(t task.Task) (bool, error) {
 		ID:   uuid.NewV4().String(),
 		Type: t.Type(),
 		Status: task.Status{
-			State:     "SCHEDULED",
+			State:     task.StateScheduled,
 			Completed: false,
 			Success:   false,
 		},
 		Task: t,
 	}
 
-	scheduled, err := d.WorkPool.Schedule(scheduledTask)
+	scheduled, err := d.Manager.Schedule(scheduledTask)
 
 	if !scheduled {
 		return false, err

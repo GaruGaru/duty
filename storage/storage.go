@@ -7,11 +7,13 @@ type Storage interface {
 
 	Update(task.ScheduledTask, task.Status) error
 
-	Status(ttype string, id string) (task.ScheduledTask, error)
+	Status(id string) (task.ScheduledTask, error)
 
 	ListByType(types string) ([]task.ScheduledTask, error)
 
-	Delete(ttype string, id string) (bool, error)
+	ListAll() ([]task.ScheduledTask, error)
+
+	Delete(id string) (bool, error)
 
 	Close()
 }

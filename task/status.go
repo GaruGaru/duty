@@ -1,10 +1,11 @@
 package task
 
 var (
-	StatePending = "PENDING"
-	StateRunning = "RUNNING"
-	StateSuccess = "SUCCESS"
-	StateError   = "ERROR"
+	StateScheduled = "SCHEDULED"
+	StatePending   = "PENDING"
+	StateRunning   = "RUNNING"
+	StateSuccess   = "SUCCESS"
+	StateError     = "ERROR"
 )
 
 type Status struct {

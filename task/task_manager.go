@@ -1,6 +1,9 @@
 package task
 
-import "github.com/GaruGaru/duty/storage"
+import (
+	"fmt"
+	"github.com/GaruGaru/duty/storage"
+)
 
 type Manager struct {
 	Storage         storage.Storage
@@ -9,8 +12,36 @@ type Manager struct {
 	Results         chan ScheduledTaskResult
 }
 
-func Initialize() {
+func NewTaskManager(storage storage.Storage) Manager {
+	results := make(chan ScheduledTaskResult)
+	return Manager{
+		Storage:         storage,
+		RunningTasksMap: make(map[string]ScheduledTask, 0),
+		WorkPool:        NewWorkerPool(10, 10, results),
+		Results:         results,
+	}
+}
 
+func (m Manager) Initialize() error {
+
+	tasks, err := m.Storage.ListAll()
+
+	if err != nil {
+		return err
+	}
+
+	for _, task := range tasks {
+		if !task.Status.Completed {
+			task.Status = StatusError(fmt.Errorf("task terminated unexpectedly"))
+			if err := m.Storage.Store(task); err != nil {
+				return err
+			}
+		}
+	}
+
+	go m.WorkPool.Start()
+
+	return nil
 }
 
 func (m Manager) handleResults() error {
@@ -29,4 +60,8 @@ func (m Manager) handleResults() error {
 	}
 
 	return nil
+}
+
+func (m Manager) Schedule(task ScheduledTask) (bool, error) {
+	return m.WorkPool.Schedule(task)
 }

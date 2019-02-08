@@ -10,6 +10,8 @@ type BoltDB struct {
 	DB *bolt.DB
 }
 
+const Bucket = "duty-tasks"
+
 func NewBoltDB(path string) (*BoltDB, error) {
 	db, err := bolt.Open(path, 0666, nil)
 	if err != nil {
@@ -21,7 +23,7 @@ func NewBoltDB(path string) (*BoltDB, error) {
 func (s BoltDB) Store(task task.ScheduledTask) error {
 	return s.DB.Update(func(tx *bolt.Tx) error {
 
-		bucket, err := tx.CreateBucketIfNotExists([]byte(task.Type))
+		bucket, err := tx.CreateBucketIfNotExists([]byte(Bucket))
 
 		if err != nil {
 			return err
@@ -37,14 +39,14 @@ func (s BoltDB) Store(task task.ScheduledTask) error {
 	})
 }
 
-func (s BoltDB) Status(ttype string, id string) (task.ScheduledTask, error) {
+func (s BoltDB) Status(id string) (task.ScheduledTask, error) {
 	var task task.ScheduledTask
 
 	err := s.DB.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(ttype))
+		bucket := tx.Bucket([]byte(Bucket))
 
 		if bucket == nil {
-			return fmt.Errorf("no task found with type " + ttype)
+			return fmt.Errorf("bucket not found")
 		}
 
 		payload := bucket.Get([]byte(id))
@@ -67,10 +69,26 @@ func (s BoltDB) Status(ttype string, id string) (task.ScheduledTask, error) {
 }
 
 func (s BoltDB) ListByType(types string) ([]task.ScheduledTask, error) {
+	tasks, err := s.ListAll()
+
+	filtered := make([]task.ScheduledTask, 0)
+
+	if err != nil {
+		return nil, err
+	}
+
+	for _, task := range tasks {
+		filtered = append(filtered, task)
+	}
+
+	return filtered, nil
+}
+
+func (s BoltDB) ListAll() ([]task.ScheduledTask, error) {
 	tasks := make([]task.ScheduledTask, 0)
 
 	err := s.DB.View(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(types))
+		bucket := tx.Bucket([]byte(Bucket))
 
 		if bucket == nil {
 			return nil
@@ -87,6 +105,7 @@ func (s BoltDB) ListByType(types string) ([]task.ScheduledTask, error) {
 			}
 
 			tasks = append(tasks, scheduledTask)
+
 		}
 
 		return nil
@@ -95,10 +114,10 @@ func (s BoltDB) ListByType(types string) ([]task.ScheduledTask, error) {
 	return tasks, err
 }
 
-func (s BoltDB) Delete(ttype string, id string) (bool, error) {
+func (s BoltDB) Delete(id string) (bool, error) {
 	deleted := false
 	err := s.DB.Update(func(tx *bolt.Tx) error {
-		bucket := tx.Bucket([]byte(ttype))
+		bucket := tx.Bucket([]byte(Bucket))
 
 		if bucket == nil {
 			return nil
@@ -116,7 +135,7 @@ func (s BoltDB) Delete(ttype string, id string) (bool, error) {
 }
 
 func (s BoltDB) Update(task task.ScheduledTask, status task.Status) error {
-	task, err := s.Status(task.Type, task.ID)
+	task, err := s.Status(task.ID)
 
 	if err != nil {
 		return err

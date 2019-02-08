@@ -1,1 +1,1 @@
-# Go Library for long running persistent tasks
+# [WIP] Go Library for long running persistent tasks

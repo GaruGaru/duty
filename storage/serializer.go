@@ -18,4 +18,3 @@ func Deserialize(payload []byte) (task.ScheduledTask, error) {
 	err := json.Unmarshal(payload, &result)
 	return result, err
 }
-
