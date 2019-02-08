@@ -1,18 +1,19 @@
 package duty
 
 import (
+	"github.com/GaruGaru/duty/scheduler"
 	"github.com/GaruGaru/duty/storage"
 	"github.com/GaruGaru/duty/task"
 	"github.com/satori/go.uuid"
 )
 
 type Duty struct {
-	Manager task.Manager
+	Manager scheduler.Manager
 }
 
 func New(store storage.Storage) Duty {
 	return Duty{
-		Manager: task.NewTaskManager(store),
+		Manager: scheduler.NewTaskManager(store),
 	}
 }
 

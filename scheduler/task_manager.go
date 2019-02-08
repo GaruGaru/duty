@@ -1,13 +1,14 @@
-package task
+package scheduler
 
 import (
 	"fmt"
 	"github.com/GaruGaru/duty/storage"
+	"github.com/GaruGaru/duty/task"
 )
 
 type Manager struct {
 	Storage         storage.Storage
-	RunningTasksMap map[string]ScheduledTask
+	RunningTasksMap map[string]task.ScheduledTask
 	WorkPool        Pool
 	Results         chan ScheduledTaskResult
 }
@@ -16,7 +17,7 @@ func NewTaskManager(storage storage.Storage) Manager {
 	results := make(chan ScheduledTaskResult)
 	return Manager{
 		Storage:         storage,
-		RunningTasksMap: make(map[string]ScheduledTask, 0),
+		RunningTasksMap: make(map[string]task.ScheduledTask, 1),
 		WorkPool:        NewWorkerPool(10, 10, results),
 		Results:         results,
 	}
@@ -30,16 +31,35 @@ func (m Manager) Initialize() error {
 		return err
 	}
 
-	for _, task := range tasks {
-		if !task.Status.Completed {
-			task.Status = StatusError(fmt.Errorf("task terminated unexpectedly"))
-			if err := m.Storage.Store(task); err != nil {
+	for _, ctask := range tasks {
+		if !ctask.Status.Completed {
+			ctask.Status = task.StatusError(fmt.Errorf("task terminated unexpectedly"))
+			if err := m.Storage.Store(ctask); err != nil {
 				return err
 			}
 		}
 	}
 
 	go m.WorkPool.Start()
+
+	return nil
+}
+
+func (m Manager) Cleanup() error {
+	tasks, err := m.Storage.ListAll()
+
+	if err != nil {
+		return err
+	}
+
+	for _, ctask := range tasks {
+		if ctask.Status.Completed {
+			ctask.Status = task.StatusError(fmt.Errorf("task terminated unexpectedly"))
+			if err := m.Storage.Store(ctask); err != nil {
+				return err
+			}
+		}
+	}
 
 	return nil
 }
@@ -62,6 +82,6 @@ func (m Manager) handleResults() error {
 	return nil
 }
 
-func (m Manager) Schedule(task ScheduledTask) (bool, error) {
+func (m Manager) Schedule(task task.ScheduledTask) (bool, error) {
 	return m.WorkPool.Schedule(task)
 }

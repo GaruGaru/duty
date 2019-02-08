@@ -1,17 +1,17 @@
-package task
+package scheduler
 
 import (
-	"github.com/sirupsen/logrus"
+	"github.com/GaruGaru/duty/task"
 )
 
 type ScheduledTaskResult struct {
-	ScheduledTask ScheduledTask
-	Status        Status
+	ScheduledTask task.ScheduledTask
+	Status        task.Status
 }
 
 type Pool struct {
 	BaseSize       int
-	Tasks          chan ScheduledTask
+	Tasks          chan task.ScheduledTask
 	SignalsChannel chan interface{}
 	WorkersCount   int32
 	ResultsChan    chan ScheduledTaskResult
@@ -20,7 +20,7 @@ type Pool struct {
 func NewWorkerPool(size int, backPressure int, resChan chan ScheduledTaskResult) Pool {
 	return Pool{
 		BaseSize:       size,
-		Tasks:          make(chan ScheduledTask, backPressure),
+		Tasks:          make(chan task.ScheduledTask, backPressure),
 		SignalsChannel: make(chan interface{}),
 		WorkersCount:   0,
 		ResultsChan:    resChan,
@@ -33,20 +33,18 @@ func (wp Pool) Start() {
 	}
 
 	<-wp.SignalsChannel
-
-	logrus.Warn("Received stop signal")
 }
 
 func (wp Pool) Stop() {
 	wp.SignalsChannel <- true
 }
 
-func (wp Pool) Schedule(scheduledTask ScheduledTask) (bool, error) {
+func (wp Pool) Schedule(scheduledTask task.ScheduledTask) (bool, error) {
 	select {
 	case wp.Tasks <- scheduledTask:
 		wp.ResultsChan <- ScheduledTaskResult{
 			ScheduledTask: scheduledTask,
-			Status:        StatusCreated,
+			Status:        task.StatusCreated,
 		}
 		return true, nil
 	default:
@@ -61,24 +59,24 @@ func (wp *Pool) startWorker() {
 			close(wp.Tasks)
 			close(wp.SignalsChannel)
 			return
-		case task := <-wp.Tasks:
+		case ctask := <-wp.Tasks:
 
 			wp.ResultsChan <- ScheduledTaskResult{
-				ScheduledTask: task,
-				Status:        StatusRunning,
+				ScheduledTask: ctask,
+				Status:        task.StatusRunning,
 			}
 
-			err := task.Task.Run()
+			err := ctask.Task.Run()
 
 			if err != nil {
 				wp.ResultsChan <- ScheduledTaskResult{
-					ScheduledTask: task,
-					Status:        StatusError(err),
+					ScheduledTask: ctask,
+					Status:        task.StatusError(err),
 				}
 			} else {
 				wp.ResultsChan <- ScheduledTaskResult{
-					ScheduledTask: task,
-					Status:        StatusSuccess,
+					ScheduledTask: ctask,
+					Status:        task.StatusSuccess,
 				}
 			}
 
