@@ -15,7 +15,7 @@ type Status struct {
 	Message   string
 }
 
-var StatusCreated = Status{
+var StatusPending = Status{
 	State:     StatePending,
 	Completed: false,
 	Success:   false,

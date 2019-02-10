@@ -37,6 +37,7 @@ func (wp Pool) Start() {
 
 func (wp Pool) Stop() {
 	wp.SignalsChannel <- true
+	close(wp.ResultsChan)
 }
 
 func (wp Pool) Schedule(scheduledTask task.ScheduledTask) (bool, error) {
@@ -44,7 +45,7 @@ func (wp Pool) Schedule(scheduledTask task.ScheduledTask) (bool, error) {
 	case wp.Tasks <- scheduledTask:
 		wp.ResultsChan <- ScheduledTaskResult{
 			ScheduledTask: scheduledTask,
-			Status:        task.StatusCreated,
+			Status:        task.StatusPending,
 		}
 		return true, nil
 	default:

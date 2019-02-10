@@ -4,7 +4,6 @@ import (
 	"github.com/GaruGaru/duty/scheduler"
 	"github.com/GaruGaru/duty/storage"
 	"github.com/GaruGaru/duty/task"
-	"github.com/satori/go.uuid"
 )
 
 type Duty struct {
@@ -18,22 +17,9 @@ func New(store storage.Storage) Duty {
 }
 
 func (d Duty) Schedule(t task.Task) (bool, error) {
-	scheduledTask := task.ScheduledTask{
-		ID:   uuid.NewV4().String(),
-		Type: t.Type(),
-		Status: task.Status{
-			State:     task.StateScheduled,
-			Completed: false,
-			Success:   false,
-		},
-		Task: t,
-	}
+	return d.Manager.Schedule(t)
+}
 
-	scheduled, err := d.Manager.Schedule(scheduledTask)
-
-	if !scheduled {
-		return false, err
-	}
-
-	return true, err
+func (d Duty) RunningTasks()  {
+	d.Manager.RunningTasks()
 }

@@ -12,7 +12,7 @@ type BoltDB struct {
 
 const Bucket = "duty-tasks"
 
-func NewBoltDB(path string) (*BoltDB, error) {
+func NewBoltDBStorage(path string) (*BoltDB, error) {
 	db, err := bolt.Open(path, 0666, nil)
 	if err != nil {
 		return nil, err

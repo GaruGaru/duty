@@ -17,7 +17,7 @@ func testStorage() (*BoltDB, string) {
 
 	defer os.Remove(file.Name())
 
-	db, err := NewBoltDB(file.Name())
+	db, err := NewBoltDBStorage(file.Name())
 
 	if err != nil {
 		panic(err)
