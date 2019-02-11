@@ -2,8 +2,8 @@ package pool
 
 import (
 	"fmt"
-	"github.com/GaruGaru/duty/scheduler"
 	"github.com/GaruGaru/duty/task"
+	"sync"
 )
 
 var (
@@ -12,15 +12,18 @@ var (
 )
 
 type Pool struct {
-	TaskQueue    chan task.ScheduledTask
-	ResultsCh    chan scheduler.ScheduledTaskResult
-	WorkersCount int
+	TaskQueue      chan task.ScheduledTask
+	ResultsCh      chan ScheduledTaskResult
+	WorkersCount   int
+	ResultCallback func(ScheduledTaskResult)
+	wg             *sync.WaitGroup
 }
 
 type Options struct {
-	Workers   int
-	Results   chan scheduler.ScheduledTaskResult
-	QueueSize int
+	Workers        int
+	Results        chan ScheduledTaskResult
+	QueueSize      int
+	ResultCallback func(ScheduledTaskResult)
 }
 
 func New(opt Options) Pool {
@@ -33,19 +36,26 @@ func New(opt Options) Pool {
 		opt.Workers = DefaultWorkers
 	}
 
+	if opt.ResultCallback == nil {
+		opt.ResultCallback = func(result ScheduledTaskResult) {}
+	}
+
 	return Pool{
-		TaskQueue:    make(chan task.ScheduledTask, opt.QueueSize*opt.Workers),
-		ResultsCh:    opt.Results,
-		WorkersCount: opt.Workers,
+		TaskQueue:      make(chan task.ScheduledTask, opt.QueueSize*opt.Workers),
+		ResultsCh:      opt.Results,
+		WorkersCount:   opt.Workers,
+		ResultCallback: opt.ResultCallback,
+		wg:             &sync.WaitGroup{},
 	}
 
 }
 
 func (p Pool) Init() {
+	p.wg.Add(1)
 	for i := 0; i < p.WorkersCount; i++ {
 		go func() {
 			for t := range p.TaskQueue {
-				notified, _ := p.Execute(t)
+				notified, _, _ := p.Execute(t)
 				if !notified {
 					fmt.Println("unable to notify async task result")
 				}
@@ -64,7 +74,7 @@ func (p Pool) Enqueue(t task.ScheduledTask) bool {
 	}
 }
 
-func (p Pool) Execute(t task.ScheduledTask) (bool, error) {
+func (p Pool) Execute(t task.ScheduledTask) (bool, ScheduledTaskResult, error) {
 	p.notifyTaskResult(t, task.StatusRunning)
 
 	err := t.Task.Run()
@@ -77,21 +87,35 @@ func (p Pool) Execute(t task.ScheduledTask) (bool, error) {
 
 	notified := p.notifyTaskResult(t, status)
 
-	return notified, err
+	return notified, ScheduledTaskResult{
+		Status:        status,
+		ScheduledTask: t,
+	}, err
 }
 
 func (p Pool) Close() {
 	close(p.ResultsCh)
+	p.wg.Done()
+}
+
+func (p Pool) Wait() {
+	p.wg.Wait()
 }
 
 func (p Pool) notifyTaskResult(task task.ScheduledTask, status task.Status) bool {
-	select {
-	case p.ResultsCh <- scheduler.ScheduledTaskResult{
+
+	result := ScheduledTaskResult{
 		Status:        status,
 		ScheduledTask: task,
-	}:
+	}
+
+	p.ResultCallback(result)
+
+	select {
+	case p.ResultsCh <- result:
 		return true
 	default:
 		return false
 	}
+
 }

@@ -2,52 +2,35 @@ package scheduler
 
 import (
 	"fmt"
+	"github.com/GaruGaru/duty/pool"
 	"github.com/GaruGaru/duty/storage"
 	"github.com/GaruGaru/duty/task"
 	"github.com/satori/go.uuid"
 )
 
-type ResultCallback func(ScheduledTaskResult)
-
 type Manager struct {
 	Storage         storage.Storage
 	RunningTasksMap map[string]task.ScheduledTask
-	WorkPool        Pool
-	Results         chan ScheduledTaskResult
-	ResultCallback  ResultCallback
+	WorkPool        pool.Pool
 }
 
 func NewTaskManager(storage storage.Storage) Manager {
-	results := make(chan ScheduledTaskResult)
 	return Manager{
 		Storage:         storage,
 		RunningTasksMap: make(map[string]task.ScheduledTask, 1),
-		WorkPool:        NewWorkerPool(10, 10, results),
-		Results:         results,
-		ResultCallback:  func(result ScheduledTaskResult) {},
+		WorkPool:        pool.New(pool.Options{}),
 	}
 }
 
-func (m Manager) Init() error {
-
-	go m.WorkPool.Start()
-
-	if err := m.handleResults(); err != nil {
-		return err
-	}
-
-	return nil
+func (m Manager) Init() {
+	m.WorkPool.Init()
+	m.WorkPool.ResultCallback = m.handleResults
 }
 
-func (m Manager) OnTaskResult(callback ResultCallback) {
-	m.ResultCallback = callback
-}
-
-func (m Manager) Close()  {
+func (m Manager) Close() {
 	m.Storage.Close()
-	m.WorkPool.Stop()
+	m.WorkPool.Close()
 }
-
 
 func (m Manager) Cleanup() error {
 	tasks, err := m.Storage.ListAll()
@@ -68,28 +51,39 @@ func (m Manager) Cleanup() error {
 	return nil
 }
 
-func (m Manager) handleResults() error {
-	for result := range m.Results {
+func (m Manager) handleResults(result pool.ScheduledTaskResult) {
 
-		if err := m.Storage.Update(result.ScheduledTask, result.Status); err != nil {
-			return err
-		}
-
-		if result.Status.Completed {
-			delete(m.RunningTasksMap, result.ScheduledTask.ID)
-		} else {
-			m.RunningTasksMap[result.ScheduledTask.ID] = result.ScheduledTask
-		}
-
-		m.ResultCallback(result)
-
+	if err := m.Storage.Update(result.ScheduledTask, result.Status); err != nil {
+		panic(err)
 	}
 
-	return nil
+	if result.Status.Completed {
+		delete(m.RunningTasksMap, result.ScheduledTask.ID)
+	} else {
+		m.RunningTasksMap[result.ScheduledTask.ID] = result.ScheduledTask
+	}
+
 }
 
-func (m Manager) Schedule(t task.Task) (task.ScheduledTask, error) {
-	scheduledTask := task.ScheduledTask{
+func (m Manager) Execute(t task.Task) (pool.ScheduledTaskResult, error) {
+	_, result, err := m.WorkPool.Execute(m.schedule(t))
+	return result, err
+}
+
+func (m Manager) Enqueue(t task.Task) (task.ScheduledTask, error) {
+	scheduledTask := m.schedule(t)
+
+	scheduled := m.WorkPool.Enqueue(scheduledTask)
+
+	if !scheduled {
+		return task.ScheduledTask{}, fmt.Errorf("task rejected, pool is full")
+	}
+
+	return scheduledTask, nil
+}
+
+func (m Manager) schedule(t task.Task) task.ScheduledTask {
+	return task.ScheduledTask{
 		ID:   uuid.NewV4().String(),
 		Type: t.Type(),
 		Status: task.Status{
@@ -99,14 +93,6 @@ func (m Manager) Schedule(t task.Task) (task.ScheduledTask, error) {
 		},
 		Task: t,
 	}
-
-	scheduled, err := m.WorkPool.Schedule(scheduledTask)
-
-	if !scheduled {
-		return task.ScheduledTask{}, fmt.Errorf("task rejected, pool is full")
-	}
-
-	return scheduledTask, err
 }
 
 func (m Manager) AllTasks() ([]task.ScheduledTask, error) {

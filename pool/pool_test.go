@@ -2,7 +2,6 @@ package pool
 
 import (
 	"fmt"
-	"github.com/GaruGaru/duty/scheduler"
 	"github.com/GaruGaru/duty/task"
 	"github.com/satori/go.uuid"
 	"testing"
@@ -33,7 +32,7 @@ func TestPoolSyncTaskExecution(t *testing.T) {
 
 	pool := New(Options{})
 
-	notified, err := pool.Execute(schedule(TestTask{
+	notified, status, err := pool.Execute(schedule(TestTask{
 		Fn: func() error {
 			return nil
 		},
@@ -47,13 +46,21 @@ func TestPoolSyncTaskExecution(t *testing.T) {
 		t.Fatalf("worker pool should not notify task result since result channel has not been defined")
 	}
 
+	if !status.Status.Success {
+		t.Fatal("expected state to be successful")
+	}
+
+	if !status.Status.Completed {
+		t.Fatal("expected state to be completed")
+	}
+
 }
 
 func TestPoolSyncTaskExecutionWithWithError(t *testing.T) {
 
 	pool := New(Options{})
 
-	notified, err := pool.Execute(schedule(TestTask{
+	notified, status, err := pool.Execute(schedule(TestTask{
 		Fn: func() error {
 			return fmt.Errorf("test error")
 		},
@@ -67,17 +74,25 @@ func TestPoolSyncTaskExecutionWithWithError(t *testing.T) {
 		t.Fatalf("worker pool should not notify task result since result channel has not been defined")
 	}
 
+	if status.Status.Success {
+		t.Fatal("expected state to be not successful")
+	}
+
+	if !status.Status.Completed {
+		t.Fatal("expected state to be completed")
+	}
+
 }
 
 func TestPoolSyncTaskExecutionResultChannel(t *testing.T) {
 
-	results := make(chan scheduler.ScheduledTaskResult, 5)
+	results := make(chan ScheduledTaskResult, 5)
 
 	pool := New(Options{
 		Results: results,
 	})
 
-	notified, err := pool.Execute(schedule(TestTask{
+	notified, status, err := pool.Execute(schedule(TestTask{
 		Fn: func() error {
 			return nil
 		},
@@ -91,37 +106,29 @@ func TestPoolSyncTaskExecutionResultChannel(t *testing.T) {
 		t.Fatalf("worker pool should notify task result since result channel has been defined")
 	}
 
-	result := <-results
-
-	if result.Status.State != task.StateRunning {
-		t.Fatalf("expected task state to be %s but got %s", task.StateRunning, result.Status.State)
+	if !status.Status.Success {
+		t.Fatal("expected state to be successful")
 	}
 
-	result = <-results
-
-	if result.Status.State != task.StateSuccess {
-		t.Fatalf("expected task state to be %s but got %s", task.StateSuccess, result.Status.State)
+	if !status.Status.Completed {
+		t.Fatal("expected state to be completed")
 	}
 
-	if !result.Status.Completed {
-		t.Fatal("expected task to be completed")
-	}
-
-	if !result.Status.Success {
-		t.Fatal("expected task to be successful")
-	}
-
+	testChannelResults(t, results, PoolTestOutcome{
+		Steps:      []string{task.StateRunning, task.StateSuccess},
+		Successful: true,
+	})
 }
 
 func TestPoolSyncTaskExecutionWithErrorResultChannel(t *testing.T) {
 
-	results := make(chan scheduler.ScheduledTaskResult, 5)
+	results := make(chan ScheduledTaskResult, 5)
 
 	pool := New(Options{
 		Results: results,
 	})
 
-	notified, err := pool.Execute(schedule(TestTask{
+	notified, status, err := pool.Execute(schedule(TestTask{
 		Fn: func() error {
 			return fmt.Errorf("test error")
 		},
@@ -135,28 +142,103 @@ func TestPoolSyncTaskExecutionWithErrorResultChannel(t *testing.T) {
 		t.Fatalf("worker pool should notify task result since result channel has been defined")
 	}
 
-	result := <-results
-
-	if result.Status.State != task.StateRunning {
-		t.Fatalf("expected task state to be %s but got %s", task.StateRunning, result.Status.State)
+	if status.Status.Success {
+		t.Fatal("expected state to be not successful")
 	}
 
-	result = <-results
-
-	if result.Status.State != task.StateError {
-		t.Fatalf("expected task state to be %s but got %s", task.StateSuccess, result.Status.State)
+	if !status.Status.Completed {
+		t.Fatal("expected state to be completed")
 	}
 
-	if !result.Status.Completed {
-		t.Fatal("expected task to be completed")
+	testChannelResults(t, results, PoolTestOutcome{
+		Steps:      []string{task.StateRunning, task.StateError},
+		Successful: false,
+	})
+}
+
+func TestPoolAsyncTaskExecution(t *testing.T) {
+
+	results := make(chan ScheduledTaskResult, 5)
+
+	pool := New(Options{
+		Results: results,
+	})
+
+	pool.Init()
+
+	scheduled := pool.Enqueue(schedule(TestTask{
+		Fn: func() error {
+			return nil
+		},
+	}))
+
+	if !scheduled {
+		t.Fatal("unable to schedule task")
 	}
 
-	if result.Status.Success {
-		t.Fatal("expected task to be failed")
+	testChannelResults(t, results, PoolTestOutcome{
+		Steps:      []string{task.StatePending, task.StateRunning, task.StateSuccess},
+		Successful: true,
+	})
+
+}
+
+func TestPoolAsyncTaskExecutionWithError(t *testing.T) {
+
+	results := make(chan ScheduledTaskResult, 5)
+
+	pool := New(Options{
+		Results: results,
+	})
+
+	pool.Init()
+
+	scheduled := pool.Enqueue(schedule(TestTask{
+		Fn: func() error {
+			return fmt.Errorf("test error")
+		},
+	}))
+
+	if !scheduled {
+		t.Fatal("unable to schedule task")
 	}
 
-	if result.Status.Message == "" {
-		t.Fatal("expected error message if the task is failed")
+	testChannelResults(t, results, PoolTestOutcome{
+		Steps:      []string{task.StatePending, task.StateRunning, task.StateError},
+		Successful: false,
+	})
+
+}
+
+type PoolTestOutcome struct {
+	Steps      []string
+	Successful bool
+}
+
+func testChannelResults(t *testing.T, results chan ScheduledTaskResult, testConfig PoolTestOutcome) {
+
+	var outcome task.Status
+	for _, expectedState := range testConfig.Steps {
+		result := <-results
+
+		if result.Status.State != expectedState {
+			t.Fatalf("expected task state to be %s but got %s", expectedState, result.Status.State)
+		}
+
+		outcome = result.Status
+
+	}
+
+	if !outcome.Completed {
+		t.Fatal("expected task to be completed after execution")
+	}
+
+	if outcome.Success != testConfig.Successful {
+		t.Fatalf("expected task success to be %t but was %t", testConfig.Successful, outcome.Success)
+	}
+
+	if !outcome.Success && outcome.Message == "" {
+		t.Fatal("expecting task result to have a message in case of fal")
 	}
 
 }

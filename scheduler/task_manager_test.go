@@ -11,19 +11,6 @@ func TestTaskManager(t *testing.T) {
 
 	taskManager := NewTaskManager(store)
 
-	_, err := taskManager.Schedule(TestTask{})
-
-	taskManager.Close()
-
-	if err != nil{
-		t.Fatal(err)
-	}
-
-	err = taskManager.Init()
-
-	if err != nil{
-		t.Fatal(err)
-	}
 
 
 }

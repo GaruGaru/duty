@@ -17,7 +17,7 @@ func New(store storage.Storage) Duty {
 }
 
 func (d Duty) Schedule(t task.Task) (bool, error) {
-	return d.Manager.Schedule(t)
+	return d.Manager.Enqueue(t)
 }
 
 func (d Duty) RunningTasks()  {
