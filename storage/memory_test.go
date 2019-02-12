@@ -2,35 +2,12 @@ package storage
 
 import (
 	"github.com/GaruGaru/duty/task"
-	"io/ioutil"
-	"os"
 	"testing"
 )
 
-func testStorage() (*BoltDB, string) {
+func TestInMemoryStoreScheduledTask(t *testing.T) {
 
-	file, err := ioutil.TempFile("", "bolt-")
-
-	if err != nil {
-		panic(err)
-	}
-
-	defer os.Remove(file.Name())
-
-	db, err := NewBoltDBStorage(file.Name())
-
-	if err != nil {
-		panic(err)
-	}
-
-	return db, file.Name()
-}
-
-func TestBoltDBStoreScheduledTask(t *testing.T) {
-
-	db, file := testStorage()
-
-	defer os.Remove(file)
+	db := NewMemoryStorage()
 
 	scheduledTask := task.ScheduledTask{
 		ID:   "0000-0000-0000-0000",
@@ -51,11 +28,9 @@ func TestBoltDBStoreScheduledTask(t *testing.T) {
 
 }
 
-func TestBoltDBStoreGetScheduledTask(t *testing.T) {
+func TestInMemoryStoreGetScheduledTask(t *testing.T) {
 
-	db, file := testStorage()
-
-	defer os.Remove(file)
+	db := NewMemoryStorage()
 
 	taskID := "0000-0000-0000-0000"
 
