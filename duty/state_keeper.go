@@ -1,4 +1,4 @@
-package scheduler
+package duty
 
 import "github.com/GaruGaru/duty/task"
 

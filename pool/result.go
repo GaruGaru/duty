@@ -6,4 +6,3 @@ type ScheduledTaskResult struct {
 	ScheduledTask task.ScheduledTask
 	Status        task.Status
 }
-

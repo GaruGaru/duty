@@ -1,4 +1,4 @@
-package scheduler
+package duty
 
 import (
 	"fmt"
@@ -8,21 +8,21 @@ import (
 	"github.com/satori/go.uuid"
 )
 
-type Manager struct {
+type Duty struct {
 	Storage     storage.Storage
 	WorkPool    pool.Pool
 	StateKeeper StateKeeper
 }
 
-func NewTaskManager(storage storage.Storage) Manager {
-	return Manager{
+func NewTaskManager(storage storage.Storage) Duty {
+	return Duty{
 		Storage:     storage,
 		StateKeeper: NewStateKeeper(),
 		WorkPool:    pool.New(pool.Options{}),
 	}
 }
 
-func (m Manager) Init() error {
+func (m Duty) Init() error {
 	if err := m.reconcileStatus(); err != nil {
 		return err
 	}
@@ -31,12 +31,12 @@ func (m Manager) Init() error {
 	return nil
 }
 
-func (m Manager) Close() {
+func (m Duty) Close() {
 	m.Storage.Close()
 	m.WorkPool.Close()
 }
 
-func (m Manager) reconcileStatus() error {
+func (m Duty) reconcileStatus() error {
 	storedTasks, err := m.Storage.ListAll()
 
 	if err != nil {
@@ -46,7 +46,8 @@ func (m Manager) reconcileStatus() error {
 	for _, sTask := range storedTasks {
 		if sTask.Status.State == task.StateRunning && !m.StateKeeper.IsRunning(sTask.ID) {
 			sTask.Status = task.StatusError(fmt.Errorf("task terminated unexpectedly"))
-			_, err := m.Storage.Delete(sTask.ID)
+
+			err := m.Storage.Store(sTask)
 
 			if err != nil {
 				return err
@@ -59,7 +60,7 @@ func (m Manager) reconcileStatus() error {
 	return nil
 }
 
-func (m Manager) handleResults(result pool.ScheduledTaskResult) {
+func (m Duty) handleResults(result pool.ScheduledTaskResult) {
 
 	if err := m.Storage.Update(result.ScheduledTask, result.Status); err != nil {
 		panic(err)
@@ -73,13 +74,13 @@ func (m Manager) handleResults(result pool.ScheduledTaskResult) {
 
 }
 
-func (m Manager) Execute(t task.Task) (pool.ScheduledTaskResult, error) {
+func (m Duty) Execute(t task.Task) (pool.ScheduledTaskResult, error) {
 	_, result, err := m.WorkPool.Execute(m.schedule(t))
 	m.handleResults(result)
 	return result, err
 }
 
-func (m Manager) Enqueue(t task.Task) (task.ScheduledTask, error) {
+func (m Duty) Enqueue(t task.Task) (task.ScheduledTask, error) {
 	scheduledTask := m.schedule(t)
 
 	scheduled := m.WorkPool.Enqueue(scheduledTask)
@@ -91,7 +92,7 @@ func (m Manager) Enqueue(t task.Task) (task.ScheduledTask, error) {
 	return scheduledTask, nil
 }
 
-func (m Manager) schedule(t task.Task) task.ScheduledTask {
+func (m Duty) schedule(t task.Task) task.ScheduledTask {
 	return task.ScheduledTask{
 		ID:   uuid.NewV4().String(),
 		Type: t.Type(),

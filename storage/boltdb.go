@@ -84,7 +84,6 @@ func (s BoltDB) ListByType(types string) ([]task.ScheduledTask, error) {
 	return filtered, nil
 }
 
-
 func (s BoltDB) ListAll() ([]task.ScheduledTask, error) {
 	tasks := make([]task.ScheduledTask, 0)
 

@@ -76,7 +76,7 @@ func TestStoreGetScheduledTask(t *testing.T) {
 		t.FailNow()
 	}
 
-	retrivedTask, err := db.Status( taskID)
+	retrivedTask, err := db.Status(taskID)
 
 	if err != nil {
 		t.Fatal(err)
