@@ -22,6 +22,8 @@ type Options struct {
 
 var Default = Options{}
 
+var AssignID = ""
+
 func New(storage storage.Storage, opt Options) Duty {
 	return Duty{
 		Storage:     storage,
@@ -87,13 +89,17 @@ func (m Duty) handleResults(result pool.ScheduledTaskResult) {
 }
 
 func (m Duty) Execute(t task.Task) (pool.ScheduledTaskResult, error) {
-	_, result, err := m.WorkPool.Execute(m.schedule(t))
+	_, result, err := m.WorkPool.Execute(m.schedule(AssignID, t))
 	m.handleResults(result)
 	return result, err
 }
 
 func (m Duty) Enqueue(t task.Task) (task.ScheduledTask, error) {
-	scheduledTask := m.schedule(t)
+	return m.EnqueueWithID(AssignID, t)
+}
+
+func (m Duty) EnqueueWithID(id string, t task.Task) (task.ScheduledTask, error) {
+	scheduledTask := m.schedule(id, t)
 
 	scheduled := m.WorkPool.Enqueue(scheduledTask)
 
@@ -112,9 +118,14 @@ func (m Duty) Tasks(id string) ([]task.ScheduledTask, error) {
 	return m.Storage.ListAll()
 }
 
-func (m Duty) schedule(t task.Task) task.ScheduledTask {
+func (m Duty) schedule(id string, t task.Task) task.ScheduledTask {
+
+	if id == AssignID {
+		id = uuid.NewV4().String()
+	}
+
 	return task.ScheduledTask{
-		ID:   uuid.NewV4().String(),
+		ID:   id,
 		Type: t.Type(),
 		Status: task.Status{
 			State:     task.StateScheduled,
