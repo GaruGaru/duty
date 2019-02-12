@@ -11,7 +11,7 @@ func TestTaskManagerInitWithNoTasks(t *testing.T) {
 
 	store := storage.NewMemoryStorage()
 
-	manager := NewTaskManager(store)
+	manager := New(store, Default)
 
 	err := manager.Init()
 
@@ -37,7 +37,7 @@ func TestTaskManagerStatusReconcilePreviousRunningTaskAfterInit(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	manager := NewTaskManager(store)
+	manager := New(store, Default)
 
 	err = manager.Init()
 

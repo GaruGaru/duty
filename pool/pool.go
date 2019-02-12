@@ -1,7 +1,6 @@
 package pool
 
 import (
-	"fmt"
 	"github.com/GaruGaru/duty/task"
 	"sync"
 )
@@ -57,7 +56,7 @@ func (p Pool) Init() {
 			for t := range p.TaskQueue {
 				notified, _, _ := p.Execute(t)
 				if !notified {
-					fmt.Println("unable to notify async task result")
+
 				}
 			}
 		}()

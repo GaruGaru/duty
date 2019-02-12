@@ -14,11 +14,23 @@ type Duty struct {
 	StateKeeper StateKeeper
 }
 
-func NewTaskManager(storage storage.Storage) Duty {
+type Options struct {
+	ResultCallback func(pool.ScheduledTaskResult)
+	Workers        int
+	QueueSize      int
+}
+
+var Default = Options{}
+
+func New(storage storage.Storage, opt Options) Duty {
 	return Duty{
 		Storage:     storage,
 		StateKeeper: NewStateKeeper(),
-		WorkPool:    pool.New(pool.Options{}),
+		WorkPool: pool.New(pool.Options{
+			ResultCallback: opt.ResultCallback,
+			Workers:        opt.Workers,
+			QueueSize:      opt.QueueSize,
+		}),
 	}
 }
 
