@@ -54,7 +54,7 @@ fmt.Println(task.Status.State)
 **Task monitoring (async)**
 
 ```go
-
+	
 wg := sync.WaitGroup{}
 wg.Add(1)
 

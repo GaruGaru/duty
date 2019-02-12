@@ -21,7 +21,7 @@ func (PrintTask) Type() string {
 	return "print"
 }
 
-func main() {
+func exampleAsyncWait() {
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)

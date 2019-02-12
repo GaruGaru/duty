@@ -5,7 +5,7 @@ import (
 	"github.com/GaruGaru/duty/storage"
 )
 
-func main() {
+func exampleBasic() {
 
 	d := duty.New(storage.NewMemoryStorage(), duty.Default)
 
