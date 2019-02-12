@@ -104,6 +104,14 @@ func (m Duty) Enqueue(t task.Task) (task.ScheduledTask, error) {
 	return scheduledTask, nil
 }
 
+func (m Duty) Get(id string) (task.ScheduledTask, error) {
+	return m.Storage.Status(id)
+}
+
+func (m Duty) Tasks(id string) ([]task.ScheduledTask, error) {
+	return m.Storage.ListAll()
+}
+
 func (m Duty) schedule(t task.Task) task.ScheduledTask {
 	return task.ScheduledTask{
 		ID:   uuid.NewV4().String(),
