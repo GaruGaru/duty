@@ -61,7 +61,7 @@ func (m Memory) Delete(id string) (bool, error) {
 
 func (m Memory) Exists(id string) bool {
 	_, p := m.Tasks[id]
-	return p, nil
+	return p
 }
 
 func (m Memory) Close() {

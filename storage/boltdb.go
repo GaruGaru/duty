@@ -136,18 +136,12 @@ func (s BoltDB) Delete(id string) (bool, error) {
 
 func (s BoltDB) Update(task task.ScheduledTask, status task.Status) error {
 
-	present, err := s.Exists(task.ID)
-
-	if err != nil {
-		return err
-	}
-
-	if !present {
+	if !s.Exists(task.ID) {
 		task.Status = status
 		return s.Store(task)
 	}
 
-	task, err = s.Status(task.ID)
+	task, err := s.Status(task.ID)
 
 	if err != nil {
 		return err
