@@ -10,26 +10,6 @@ type BoltDB struct {
 	DB *bolt.DB
 }
 
-func (s BoltDB) Exists(id string) (bool, error) {
-	tx, err := s.DB.Begin(false)
-
-	if err != nil {
-		return false, err
-	}
-	bucket := tx.Bucket([]byte(Bucket))
-
-	if bucket == nil {
-		return false, nil
-	}
-
-	payload := bucket.Get([]byte(id))
-
-	if payload == nil || len(payload) == 0 {
-		return false, nil
-	}
-
-	return true, nil
-}
 
 const Bucket = "duty-tasks"
 
@@ -177,6 +157,28 @@ func (s BoltDB) Update(task task.ScheduledTask, status task.Status) error {
 	task.Status = status
 
 	return s.Store(task)
+}
+
+
+func (s BoltDB) Exists(id string) (bool, error) {
+	tx, err := s.DB.Begin(false)
+
+	if err != nil {
+		return false, err
+	}
+	bucket := tx.Bucket([]byte(Bucket))
+
+	if bucket == nil {
+		return false, nil
+	}
+
+	payload := bucket.Get([]byte(id))
+
+	if payload == nil || len(payload) == 0 {
+		return false, nil
+	}
+
+	return true, tx.Commit()
 }
 
 func (s BoltDB) Close() {
