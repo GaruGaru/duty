@@ -59,7 +59,7 @@ func (m Memory) Delete(id string) (bool, error) {
 	return found, nil
 }
 
-func (m Memory) Exists(id string) (bool, error) {
+func (m Memory) Exists(id string) bool {
 	_, p := m.Tasks[id]
 	return p, nil
 }

@@ -10,7 +10,6 @@ type BoltDB struct {
 	DB *bolt.DB
 }
 
-
 const Bucket = "duty-tasks"
 
 func NewBoltDBStorage(path string) (*BoltDB, error) {
@@ -159,26 +158,25 @@ func (s BoltDB) Update(task task.ScheduledTask, status task.Status) error {
 	return s.Store(task)
 }
 
+func (s BoltDB) Exists(id string) bool {
+	err := s.DB.View(func(tx *bolt.Tx) error {
 
-func (s BoltDB) Exists(id string) (bool, error) {
-	tx, err := s.DB.Begin(false)
+		bucket := tx.Bucket([]byte(Bucket))
 
-	if err != nil {
-		return false, err
-	}
-	bucket := tx.Bucket([]byte(Bucket))
+		if bucket == nil {
+			return nil
+		}
 
-	if bucket == nil {
-		return false, nil
-	}
+		payload := bucket.Get([]byte(id))
 
-	payload := bucket.Get([]byte(id))
+		if payload == nil || len(payload) == 0 {
+			return nil
+		}
 
-	if payload == nil || len(payload) == 0 {
-		return false, nil
-	}
+		return nil
+	})
 
-	return true, tx.Commit()
+	return err != nil
 }
 
 func (s BoltDB) Close() {
