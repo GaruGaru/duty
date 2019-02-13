@@ -86,7 +86,9 @@ func (m Duty) handleResults(result pool.ScheduledTaskResult) {
 		m.StateKeeper.AddRunningTask(result.ScheduledTask)
 	}
 
-	m.ResultCallback(result)
+	if m.ResultCallback != nil {
+		m.ResultCallback(result)
+	}
 
 }
 
