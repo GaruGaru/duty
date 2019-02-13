@@ -9,6 +9,8 @@ type Storage interface {
 
 	Status(id string) (task.ScheduledTask, error)
 
+	Exists(id string) (bool, error)
+
 	ListByType(types string) ([]task.ScheduledTask, error)
 
 	ListAll() ([]task.ScheduledTask, error)
