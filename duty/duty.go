@@ -9,9 +9,10 @@ import (
 )
 
 type Duty struct {
-	Storage     storage.Storage
-	WorkPool    pool.Pool
-	StateKeeper StateKeeper
+	Storage        storage.Storage
+	WorkPool       pool.Pool
+	StateKeeper    StateKeeper
+	ResultCallback func(pool.ScheduledTaskResult)
 }
 
 type Options struct {
@@ -29,9 +30,8 @@ func New(storage storage.Storage, opt Options) Duty {
 		Storage:     storage,
 		StateKeeper: NewStateKeeper(),
 		WorkPool: pool.New(pool.Options{
-			ResultCallback: opt.ResultCallback,
-			Workers:        opt.Workers,
-			QueueSize:      opt.QueueSize,
+			Workers:   opt.Workers,
+			QueueSize: opt.QueueSize,
 		}),
 	}
 }
@@ -40,8 +40,8 @@ func (m Duty) Init() error {
 	if err := m.reconcileStatus(); err != nil {
 		return err
 	}
-	m.WorkPool.Init()
 	m.WorkPool.ResultCallback = m.handleResults
+	m.WorkPool.Init()
 	return nil
 }
 
@@ -85,6 +85,8 @@ func (m Duty) handleResults(result pool.ScheduledTaskResult) {
 	} else {
 		m.StateKeeper.AddRunningTask(result.ScheduledTask)
 	}
+
+	m.ResultCallback(result)
 
 }
 
